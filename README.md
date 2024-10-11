@@ -10,5 +10,5 @@ Dice rolling app which allows users to be able to select how many dice they want
   <img alt="Previous rolls view" src="https://github.com/user-attachments/assets/34e26fac-c8f0-4f40-9e06-f70ad8f14978" width="250" />
 </p>
 
-
+Dice assets provided as part of public domain from Kenney [here](https://opengameart.org/content/boardgame-pack)
 
