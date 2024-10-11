@@ -7,6 +7,40 @@
 
 import SwiftUI
 
+// The notification we'll send when a shake gesture happens.
+extension UIDevice {
+    static let deviceDidShakeNotification = Notification.Name(rawValue: "deviceDidShakeNotification")
+}
+
+//  Override the default behavior of shake gestures to send our notification instead.
+extension UIWindow {
+    open override func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
+        if motion == .motionShake {
+            NotificationCenter.default.post(name: UIDevice.deviceDidShakeNotification, object: nil)
+        }
+    }
+}
+
+// A view modifier that detects shaking and calls a function of our choosing.
+struct DeviceShakeViewModifier: ViewModifier {
+    let action: () -> Void
+    
+    func body(content: Content) -> some View {
+        content
+            .onAppear()
+            .onReceive(NotificationCenter.default.publisher(for: UIDevice.deviceDidShakeNotification)) { _ in
+                action()
+            }
+    }
+}
+
+// A View extension to make the modifier easier to use.
+extension View {
+    func onShake(perform action: @escaping () -> Void) -> some View {
+        self.modifier(DeviceShakeViewModifier(action: action))
+    }
+}
+
 struct RollView: View {
     @Environment(\.modelContext) var modelContext
     @State private var selectedSides = 6
@@ -15,6 +49,10 @@ struct RollView: View {
     @State private var diceRolls: [Int] = []
     @State private var displayedDiceIndex = 0
     @State private var isRolling = false
+    @State private var isBlinking = false
+    @State private var blinkCount = 0
+    @State private var blinkTimer: Timer?
+    let totalBlinks = 2
     
     var isMultipleDice: Bool { numberOfDice > 1 }
     var isUsingCustomDice: Bool { selectedSides > 6 }
@@ -25,32 +63,68 @@ struct RollView: View {
             VStack {
                 HStack {
                     Spacer()
+                    
+                    Text(isRolling ? "Rolling..." : "Shake to Roll!")
+                        .font(.title)
+                        .bold()
+                        .padding()
+                        .foregroundStyle(Color.orange.mix(with: .red, by: 0.2))
+                        .opacity(!isBlinking ? 1 : 0.05)
+                        .onAppear {
+                            blinkCount = 0
+                            isBlinking = false
+                            
+                            blinkTimer = Timer.scheduledTimer(withTimeInterval: 0.8, repeats: true) { timer in
+                                withAnimation(.easeInOut(duration: 0.8)) {
+                                    isBlinking.toggle()
+                                }
+                                
+                                blinkCount += 1
+                                
+                                if blinkCount >= totalBlinks * 2 {
+                                    timer.invalidate()
+                                    blinkTimer = nil
+                                }
+                            }
+                        }
+                        .onDisappear {
+                            blinkTimer?.invalidate()
+                            blinkTimer = nil
+                        }
+                    
+                    Spacer()
+                }
+                
+                HStack {
+                    Spacer()
                     if hasRolledDice {
-                        ForEach(0..<displayedDiceIndex , id: \.self) { index in
-                            if isUsingCustomDice {
-                                CustomDieView(number: diceRolls[index])
-                                    .padding(.horizontal, 3)
+                        ForEach(0..<numberOfDice, id: \.self) { index in
+                            if index < displayedDiceIndex {
+                                if isUsingCustomDice {
+                                    CustomDieView(number: diceRolls[index])
+                                        .padding(.horizontal, 3)
+                                        .transition(.scale)
+                                } else {
+                                    Image("die\(diceRolls[index])")
+                                        .padding(.horizontal, 3)
+                                        .transition(.scale)
+                                }
                             } else {
-                                Image("die\(diceRolls[index])")
+                                Image("dieBlank")
                                     .padding(.horizontal, 3)
+                                    .transition(.scale)
                             }
                         }
                     } else {
                         ForEach(0..<numberOfDice , id: \.self) { _ in
-                            if isUsingCustomDice {
-                                CustomDieView(number: 1)
-                                    .padding(.horizontal, 3)
-                                
-                            } else {
-                                Image("die1")
-                                    .padding(.horizontal, 3)
-                            }
+                            Image(.dieBlank)
+                                .padding(.horizontal, 3)
+                                .transition(.scale)
                         }
                     }
-                    Spacer()
                     
+                    Spacer()
                 }
-                
                 .frame(height: 80)
                 .padding()
                 .background(.white)
@@ -79,8 +153,10 @@ struct RollView: View {
                     }
                     .disabled(isRolling)
                     .onChange(of: numberOfDice) {
-                        totalRolled = 0
-                        diceRolls.removeAll()
+                        withAnimation {
+                            diceRolls.removeAll()
+                            totalRolled = 0
+                        }
                     }
                     .pickerStyle(.segmented)
                     .padding(.vertical)
@@ -103,8 +179,10 @@ struct RollView: View {
                     }
                     .disabled(isRolling)
                     .onChange(of: selectedSides) {
-                        totalRolled = 0
-                        diceRolls.removeAll()
+                        withAnimation {
+                            diceRolls.removeAll()
+                            totalRolled = 0
+                        }
                     }
                     .pickerStyle(.wheel)
                     .frame(width: 200, height: 100)
@@ -116,31 +194,11 @@ struct RollView: View {
                 .shadow(radius: 3, y: 3)
                 
                 Spacer()
-                HStack {
-                    Spacer()
-                    
-                    Button("Roll") {
-                        rollDice()
-                    }
-                    .font(.title)
-                    .bold()
-                    .padding(.horizontal, 30)
-                    .foregroundStyle(.white)
-                    .padding()
-                    .background(isRolling ? .black.opacity(0.1) : Color.orange.mix(with: .red, by: 0.2))
-                    .clipShape(.capsule)
-                    .shadow(radius: !isRolling ? 3 : 0, x: 0, y: !isRolling ? 3 : 0)
-                    .disabled(isRolling)
-                    
-                    Spacer()
-                }
-                .padding(.bottom, 25)
-                
-                
             }
             .background(.black.opacity(0.07))
             .navigationTitle("DICEY")
         }
+        .onShake(perform: rollDice)
     }
     
     func rollDice() {

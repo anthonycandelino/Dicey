@@ -18,7 +18,6 @@ struct CustomDieView: View {
                 .foregroundStyle(.numberColour)
                 .font(.system(.title, design: .serif))
         }
-        
     }
 }
 

@@ -27,7 +27,6 @@ struct PreviousRollsView: View {
                                 Image("die\(dice.roll)")
                                     .padding(.horizontal, 3)
                             }
-                            
                         }
                         
                         Spacer()
@@ -40,7 +39,6 @@ struct PreviousRollsView: View {
                         Text("Total:")
                             .font(.title3)
                             .bold()
-                            
                         
                         Text("\(rollSet.rollTotal)")
                             .font(.title3)
@@ -49,7 +47,6 @@ struct PreviousRollsView: View {
                         
                         Spacer()
                     }
-    
                 }
                 .listRowSeparator(.hidden)
             }
