@@ -195,7 +195,7 @@ struct RollView: View {
                 
                 Spacer()
             }
-            .background(.black.opacity(0.07))
+            .background(Color(.systemGroupedBackground))
             .navigationTitle("DICEY")
         }
         .onShake(perform: rollDice)
